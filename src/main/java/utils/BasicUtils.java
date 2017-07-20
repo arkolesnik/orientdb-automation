@@ -1,16 +1,16 @@
 package utils;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BasicUtils {
 
-    //TODO: add synchronization
-    private static volatile long value = 0;
+    private static AtomicLong value = new AtomicLong(0);
     private static int min = 1;
     private static int max = 10;
 
-    public static synchronized long returnNextLong() {
-        return value++;
+    public static long returnNextLong() {
+        return value.incrementAndGet();
     }
 
     public static int generateSize() {

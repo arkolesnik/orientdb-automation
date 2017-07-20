@@ -10,7 +10,6 @@ import com.orientechnologies.orient.core.storage.OCluster;
 import org.joda.time.DateTime;
 import org.joda.time.Seconds;
 import org.testng.annotations.Test;
-import utils.BasicUtils;
 import utils.Counter;
 import utils.Operations;
 
@@ -27,6 +26,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
 
+        //TODO: change to 100000
         for (int i = 0; i < 100; i++) {
             ODocument record = new ODocument(CLASS_NAME);
             Counter.increment();
@@ -71,7 +71,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         createAllIndexes();
     }
 
-    private synchronized void fillInRecordProperties(ODocument record) {
+    private void fillInRecordProperties(ODocument record) {
         record.field(INTEGER_PROPERTY_NAME, returnNextLong());
         record.field(LIST_PROPERTY_NAME, getFilledList());
         record.field(SET_PROPERTY_NAME, getFilledSet());
@@ -120,7 +120,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 .createIndex(indexName, OClass.INDEX_TYPE.UNIQUE, propertyNames);
     }
 
-    private synchronized void performOperationAgainstRecord() {
+    private void performOperationAgainstRecord() {
         ODocument rec;
         boolean done;
         switch (randomlySelectOperation()) {
@@ -163,7 +163,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         }
     }
 
-    private synchronized ODocument randomlySelectRecord() {
+    private ODocument randomlySelectRecord() {
         ODatabaseDocumentTx database = (ODatabaseDocumentTx) ODatabaseRecordThreadLocal.INSTANCE.get();
         int[] clusterIDs = database.getMetadata().getSchema().getClass(CLASS_NAME).getClusterIds();
         int clusterID = clusterIDs[new Random().nextInt(clusterIDs.length)];

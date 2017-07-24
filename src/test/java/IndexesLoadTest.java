@@ -41,10 +41,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             fillInRecordProperties(record);
         }
 
-        try {
-            createAllIndexes();
-        } catch (ORecordDuplicatedException e) {
-        }
+        createAllIndexes();
 
         ExecutorService executor = Executors.newFixedThreadPool(THREADS);
         List<Callable<Object>> tasks = new ArrayList<>();
@@ -132,50 +129,56 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private void performOperationAgainstRecord() {
-        ODocument rec;
+        ODocument existingRecord;
         boolean done = false;
         int attempts = 0;
         switch (pickRandomOperation()) {
             case CREATE:
                 ODocument newRecord = new ODocument(CLASS_NAME);
                 Counter.increment();
-                LOG.info("Create operation is going to be performed");
-                fillInRecordProperties(newRecord);
-                LOG.info("C: " + newRecord.toString());
-                done = true;
+                done = false;
+                while (!done && attempts < 10) {
+                    try {
+                        fillInRecordProperties(newRecord);
+                        done = true;
+                    } catch (ORecordDuplicatedException e) {
+                        fillInRecordProperties(newRecord);
+                        attempts++;
+                    }
+                    LOG.info("C: " + newRecord.toString());
+                }
                 break;
             case UPDATE:
                 for (int i = 0; i < 4; i++) {
-                    rec = randomlySelectRecord();
+                    existingRecord = randomlySelectRecord();
                     done = false;
                     while (!done && attempts < 10) {
                         try {
-                            LOG.info("Update operation is going to be performed");
-                            modifyRecordProperties(rec);
-                            LOG.info("U: " + rec.toString());
+                            modifyRecordProperties(existingRecord);
                             done = true;
                         } catch (NullPointerException | ORecordNotFoundException
                                 | ONeedRetryException | ORecordDuplicatedException e) {
-                            rec = randomlySelectRecord();
+                            existingRecord = randomlySelectRecord();
                             attempts++;
                         }
+                        LOG.info("U: " + existingRecord.toString());
                     }
                 }
                 break;
             case DELETE:
-                rec = randomlySelectRecord();
+                existingRecord = randomlySelectRecord();
+                String objectInfo = existingRecord.toString();
                 done = false;
                 while (!done && attempts < 10) {
                     try {
-                        LOG.info("Delete operation is going to be performed");
-                        rec.delete();
-                        LOG.info("D: " + rec.toString());
+                        existingRecord.delete();
                         done = true;
                     } catch (NullPointerException | ORecordNotFoundException
                             | ONeedRetryException e) {
-                        rec = randomlySelectRecord();
+                        existingRecord = randomlySelectRecord();
                         attempts++;
                     }
+                    LOG.info("D: " + objectInfo);
                 }
                 Counter.decrement();
                 break;
@@ -228,6 +231,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             mapProperty.remove(key);
             mapProperty.put(generateInt().toString(), generateInt());
         }
+        record.save();
     }
 
     private Operations pickRandomOperation() {

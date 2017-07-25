@@ -25,8 +25,8 @@ public class CreateDatabaseForLoadFixture {
     public static final String COMPOSITE_INDEX_1 = CLASS_NAME + ".composite1";
     public static final String COMPOSITE_INDEX_2 = CLASS_NAME + ".composite2";
 
+    public static final int RECORDS_NUMBER = 100000;
     public static final int THREADS = 8;
-    public static final int THREAD_TIMEOUT = 10; //TODO: change to 169
 
     @BeforeTest
     public void createDatabase() {

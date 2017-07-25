@@ -9,8 +9,6 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.storage.OCluster;
 import com.orientechnologies.orient.core.storage.OPhysicalPosition;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
-import org.joda.time.DateTime;
-import org.joda.time.Seconds;
 import org.testng.annotations.Test;
 import utils.Counter;
 import utils.Operations;
@@ -18,13 +16,12 @@ import utils.Operations;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static utils.BasicUtils.generateSize;
-import static utils.BasicUtils.generateInt;
-import static utils.BasicUtils.returnNextInt;
+import static utils.BasicUtils.*;
 import static utils.Operations.*;
 
 public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
@@ -34,7 +31,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
 
-        //TODO: change to 100000
+        //TODO: change 100 to RECORDS_NUMBER
         for (int i = 0; i < 100; i++) {
             ODocument record = new ODocument(CLASS_NAME);
             Counter.increment();
@@ -45,37 +42,36 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
         ExecutorService executor = Executors.newFixedThreadPool(THREADS);
         List<Callable<Object>> tasks = new ArrayList<>();
-        DateTime start = new DateTime();
+        AtomicBoolean interrupt = new AtomicBoolean(false);
+
+        new Timer().schedule(
+                new TimerTask() {
+                    public void run() {
+                        interrupt.set(true);
+                    }
+                },
+                getDateToInterrupt());
+
         try {
             for (int i = 0; i < THREADS; i++) {
                 tasks.add(() -> {
                     ODatabaseDocumentTx db = new ODatabaseDocumentTx(PATH).open(USER, PASSWORD);
-                    DateTime current = new DateTime();
-                    //TODO: change seconds to hours
-                    while (Seconds.secondsBetween(start, current).getSeconds() < THREAD_TIMEOUT) {
+                    while (!interrupt.get()) {
                         performOperationAgainstRecord();
-                        current = new DateTime();
                     }
                     db.close();
                     return null;
                 });
             }
-            //TODO: delete extra seconds
-            //TODO: change seconds to hours
-            List<Future<Object>> futures = executor.invokeAll(tasks, THREAD_TIMEOUT + 10, TimeUnit.SECONDS);
+            List<Future<Object>> futures = executor.invokeAll(tasks);
             for (Future future : futures) {
                 future.get();
             }
-            executor.shutdown();
-            executor.awaitTermination(5, TimeUnit.SECONDS);
         } finally {
-            if (!executor.isTerminated()) {
-                executor.shutdownNow();
-            }
+            executor.shutdown();
         }
 
         dropAllIndexes();
-        //TODO: try to catch specific exception?
         createAllIndexes();
     }
 
@@ -142,7 +138,6 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                         fillInRecordProperties(newRecord);
                         done = true;
                     } catch (ORecordDuplicatedException e) {
-                        fillInRecordProperties(newRecord);
                         attempts++;
                     }
                     LOG.info("C: " + newRecord.toString());
@@ -191,22 +186,30 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     private ODocument randomlySelectRecord() {
         ODatabaseDocumentTx database = (ODatabaseDocumentTx) ODatabaseRecordThreadLocal.INSTANCE.get();
         int[] clusterIDs = database.getMetadata().getSchema().getClass(CLASS_NAME).getClusterIds();
-        int clusterID = clusterIDs[new Random().nextInt(clusterIDs.length)];
-        OCluster cluster = database.getStorage().getClusterById(clusterID);
+        OCluster cluster = null;
+        int clusterID = 0;
+        boolean success = false;
+        long randomPosition = 0;
         try {
-            long randomPosition = ThreadLocalRandom.current().nextLong(
-                    cluster.getFirstPosition(), cluster.getLastPosition() + 1);
-
+            while (!success) {
+                clusterID = clusterIDs[new Random().nextInt(clusterIDs.length)];
+                cluster = database.getStorage().getClusterById(clusterID);
+                randomPosition = ThreadLocalRandom.current().nextLong(
+                        cluster.getFirstPosition(), cluster.getLastPosition() + 1);
+                if (randomPosition >= 0) {
+                    success = true;
+                }
+            }
             OPhysicalPosition[] positions = cluster.ceilingPositions(new OPhysicalPosition(randomPosition));
             if (positions.length == 0) {
                 positions = cluster.floorPositions(new OPhysicalPosition(randomPosition));
             }
             long position = positions[0].clusterPosition;
             return database.load(new ORecordId(clusterID, position));
+
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalStateException(e);
         }
-        return null;
     }
 
     private void modifyRecordProperties(ODocument record) {

@@ -11,6 +11,7 @@ import com.orientechnologies.orient.core.storage.OPhysicalPosition;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.testng.annotations.Test;
 import utils.Counter;
+import utils.Fields;
 import utils.Operations;
 
 import java.io.IOException;
@@ -55,9 +56,11 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         try {
             for (int i = 0; i < THREADS; i++) {
                 tasks.add(() -> {
+                    int iterationNumber = 0;
                     ODatabaseDocumentTx db = new ODatabaseDocumentTx(PATH).open(USER, PASSWORD);
                     while (!interrupt.get()) {
-                        performOperationAgainstRecord();
+                        iterationNumber++;
+                        performOperationAgainstRecord(iterationNumber);
                     }
                     db.close();
                     return null;
@@ -124,7 +127,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 .createIndex(indexName, OClass.INDEX_TYPE.UNIQUE, propertyNames);
     }
 
-    private void performOperationAgainstRecord() {
+    private void performOperationAgainstRecord(int iterationNumber) {
         ODocument existingRecord;
         boolean done = false;
         int attempts = 0;
@@ -140,7 +143,6 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                     } catch (ORecordDuplicatedException e) {
                         attempts++;
                     }
-                    LOG.info("C: " + newRecord.toString());
                 }
                 break;
             case UPDATE:
@@ -156,13 +158,11 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                             existingRecord = randomlySelectRecord();
                             attempts++;
                         }
-                        LOG.info("U: " + existingRecord.toString());
                     }
                 }
                 break;
             case DELETE:
                 existingRecord = randomlySelectRecord();
-                String objectInfo = existingRecord.toString();
                 done = false;
                 while (!done && attempts < 10) {
                     try {
@@ -173,13 +173,16 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                         existingRecord = randomlySelectRecord();
                         attempts++;
                     }
-                    LOG.info("D: " + objectInfo);
                 }
                 Counter.decrement();
                 break;
         }
         if (!done) {
             throw new IllegalStateException("Maximum attempts count is reached");
+        }
+        //TODO: change it to bigger number
+        if (iterationNumber % 100 == 0) {
+            LOG.info("Thread " + Thread.currentThread().getId() + " has performed " + iterationNumber + " operations");
         }
     }
 
@@ -213,20 +216,54 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private void modifyRecordProperties(ODocument record) {
-        record.field(INTEGER_PROPERTY_NAME, (generateInt()));
+        int numberOfFieldsToModify = ThreadLocalRandom.current().nextInt(
+                1, Fields.values().length + 1);
 
+        Set<Fields> fields = new HashSet<>();
+        while (fields.size() < numberOfFieldsToModify) {
+            fields.add(Fields.getRandom());
+        }
+
+        for (Fields field : fields) {
+            switch (field) {
+                case INTEGER_PROPERTY:
+                    modifyIntegerProperty(record);
+                    break;
+                case LIST_PROPERTY:
+                    modifyListProperty(record);
+                    break;
+                case SET_PROPERTY:
+                    modifySetProperty(record);
+                    break;
+                case MAP_PROPERTY:
+                    modifyMapProperty(record);
+                    break;
+            }
+        }
+        record.save();
+    }
+
+    private void modifyIntegerProperty(ODocument record) {
+        record.field(INTEGER_PROPERTY_NAME, (generateInt()));
+    }
+
+    private void modifyListProperty(ODocument record) {
         List<Integer> listProperty = record.field(LIST_PROPERTY_NAME);
         for (int i = 0; i < listProperty.size() / 2; i++) {
             listProperty.set(new Random().nextInt(listProperty.size()), generateInt());
         }
+    }
 
+    private void modifySetProperty(ODocument record) {
         Set<Integer> setProperty = record.field(SET_PROPERTY_NAME);
         List<Integer> utilityIntegerList = new ArrayList<>(setProperty);
         for (int i = 0; i < setProperty.size() / 2; i++) {
             setProperty.remove(utilityIntegerList.get(new Random().nextInt(utilityIntegerList.size())));
             setProperty.add(generateInt());
         }
+    }
 
+    private void modifyMapProperty(ODocument record) {
         Map<String, Integer> mapProperty = record.field(MAP_PROPERTY_NAME);
         List<String> utilityStringList = new ArrayList<>(mapProperty.keySet());
         for (int i = 0; i < mapProperty.size() / 2; i++) {
@@ -234,7 +271,6 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             mapProperty.remove(key);
             mapProperty.put(generateInt().toString(), generateInt());
         }
-        record.save();
     }
 
     private Operations pickRandomOperation() {

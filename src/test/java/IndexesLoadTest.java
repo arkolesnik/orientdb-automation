@@ -136,7 +136,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 ODocument newRecord = new ODocument(CLASS_NAME);
                 Counter.increment();
                 done = false;
-                while (!done && attempts < 1000) {
+                while (!done && attempts < 100) {
                     try {
                         fillInRecordProperties(newRecord);
                         done = true;
@@ -149,12 +149,11 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 for (int i = 0; i < 4; i++) {
                     existingRecord = randomlySelectRecord();
                     done = false;
-                    while (!done && attempts < 1000) {
+                    while (!done && attempts < 100) {
                         try {
                             modifyRecordProperties(existingRecord);
                             done = true;
-                        } catch (NullPointerException | ORecordNotFoundException
-                                | ONeedRetryException | ORecordDuplicatedException e) {
+                        } catch (ORecordNotFoundException | ONeedRetryException | ORecordDuplicatedException e) {
                             existingRecord = randomlySelectRecord();
                             attempts++;
                         }
@@ -164,12 +163,11 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             case DELETE:
                 existingRecord = randomlySelectRecord();
                 done = false;
-                while (!done && attempts < 1000) {
+                while (!done && attempts < 100) {
                     try {
                         existingRecord.delete();
                         done = true;
-                    } catch (NullPointerException | ORecordNotFoundException
-                            | ONeedRetryException e) {
+                    } catch (ORecordNotFoundException | ONeedRetryException e) {
                         existingRecord = randomlySelectRecord();
                         attempts++;
                     }

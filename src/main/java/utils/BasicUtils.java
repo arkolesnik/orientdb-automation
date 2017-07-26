@@ -20,7 +20,7 @@ public class BasicUtils {
         GregorianCalendar calendar = new GregorianCalendar();
         calendar.setTime(date);
         //TODO: change minutes to days and use DAYS_NUMBER
-        calendar.add(Calendar.MINUTE, 1);
+        calendar.add(Calendar.MINUTE, 3);
         date.setTime(calendar.getTime().getTime());
         return date;
     }

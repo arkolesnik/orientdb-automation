@@ -136,7 +136,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 ODocument newRecord = new ODocument(CLASS_NAME);
                 Counter.increment();
                 done = false;
-                while (!done && attempts < 10) {
+                while (!done && attempts < 1000) {
                     try {
                         fillInRecordProperties(newRecord);
                         done = true;
@@ -149,7 +149,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 for (int i = 0; i < 4; i++) {
                     existingRecord = randomlySelectRecord();
                     done = false;
-                    while (!done && attempts < 10) {
+                    while (!done && attempts < 1000) {
                         try {
                             modifyRecordProperties(existingRecord);
                             done = true;
@@ -164,7 +164,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             case DELETE:
                 existingRecord = randomlySelectRecord();
                 done = false;
-                while (!done && attempts < 10) {
+                while (!done && attempts < 1000) {
                     try {
                         existingRecord.delete();
                         done = true;
@@ -189,25 +189,30 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     private ODocument randomlySelectRecord() {
         ODatabaseDocumentTx database = (ODatabaseDocumentTx) ODatabaseRecordThreadLocal.INSTANCE.get();
         int[] clusterIDs = database.getMetadata().getSchema().getClass(CLASS_NAME).getClusterIds();
-        OCluster cluster = null;
-        int clusterID = 0;
-        boolean success = false;
-        long randomPosition = 0;
+        OCluster cluster;
+        int clusterID;
+        long randomPosition;
+        long position;
         try {
-            while (!success) {
+            while (true) {
                 clusterID = clusterIDs[new Random().nextInt(clusterIDs.length)];
                 cluster = database.getStorage().getClusterById(clusterID);
-                randomPosition = ThreadLocalRandom.current().nextLong(
-                        cluster.getFirstPosition(), cluster.getLastPosition() + 1);
-                if (randomPosition >= 0) {
-                    success = true;
+                long firstPosition = cluster.getFirstPosition();
+                long lastPosition = cluster.getLastPosition();
+                if (firstPosition < 0 || lastPosition < 0) {
+                    continue;
                 }
+                randomPosition = ThreadLocalRandom.current().nextLong(firstPosition, lastPosition + 1);
+                OPhysicalPosition[] positions = cluster.ceilingPositions(new OPhysicalPosition(randomPosition));
+                if (positions.length == 0) {
+                    positions = cluster.floorPositions(new OPhysicalPosition(randomPosition));
+                }
+                if (positions.length == 0) {
+                    continue;
+                }
+                position = positions[0].clusterPosition;
+                break;
             }
-            OPhysicalPosition[] positions = cluster.ceilingPositions(new OPhysicalPosition(randomPosition));
-            if (positions.length == 0) {
-                positions = cluster.floorPositions(new OPhysicalPosition(randomPosition));
-            }
-            long position = positions[0].clusterPosition;
             return database.load(new ORecordId(clusterID, position));
 
         } catch (IOException e) {

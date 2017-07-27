@@ -1,11 +1,12 @@
 package utils;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Counter {
 
     private static AtomicInteger instanceCounter = new AtomicInteger(0);
-    private static AtomicInteger duplicationCounter = new AtomicInteger(0);
+    private static AtomicLong duplicationCounter = new AtomicLong(0);
 
     public static void incrementInstance() {
         instanceCounter.incrementAndGet();
@@ -23,7 +24,7 @@ public class Counter {
         duplicationCounter.incrementAndGet();
     }
 
-    public static int getDuplicationNumber() {
+    public static long getDuplicationNumber() {
         return duplicationCounter.get();
     }
 

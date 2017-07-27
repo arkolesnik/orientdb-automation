@@ -35,7 +35,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         //TODO: change 100 to RECORDS_NUMBER
         for (int i = 0; i < 100; i++) {
             ODocument record = new ODocument(CLASS_NAME);
-            Counter.increment();
+            Counter.incrementInstance();
             fillInRecordProperties(record);
         }
 
@@ -76,6 +76,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
         dropAllIndexes();
         createAllIndexes();
+        LOG.info("Number of ORecordDuplicationException caught during the test is: " + Counter.getDuplicationNumber());
     }
 
     private void fillInRecordProperties(ODocument record) {
@@ -134,7 +135,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         switch (pickRandomOperation()) {
             case CREATE:
                 ODocument newRecord = new ODocument(CLASS_NAME);
-                Counter.increment();
+                Counter.incrementInstance();
                 done = false;
                 while (!done && attempts < 1000) {
                     try {
@@ -142,6 +143,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                         done = true;
                     } catch (ORecordDuplicatedException e) {
                         attempts++;
+                        Counter.incrementDuplicate();
                     }
                 }
                 break;
@@ -157,6 +159,9 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                                 | ONeedRetryException | ORecordDuplicatedException e) {
                             existingRecord = randomlySelectRecord();
                             attempts++;
+                            if (e instanceof ORecordDuplicatedException) {
+                                Counter.incrementDuplicate();
+                            }
                         }
                     }
                 }
@@ -174,7 +179,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                         attempts++;
                     }
                 }
-                Counter.decrement();
+                Counter.decrementInstance();
                 break;
         }
         if (!done) {
@@ -279,9 +284,9 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private Operations pickRandomOperation() {
-        if (Counter.value() >= 200) {
+        if (Counter.getInstanceNumber() >= 200) {
             return getRandomFrom(UPDATE, DELETE);
-        } else if (Counter.value() <= 100) {
+        } else if (Counter.getInstanceNumber() <= 100) {
             return getRandomFrom(CREATE, UPDATE);
         }
         return getRandomFrom(CREATE, UPDATE, DELETE);

@@ -8,19 +8,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BasicUtils {
 
-    public static final int DAYS_NUMBER = 7;
-    public static final int START_VALUE = 0;
-    public static final int END_VALUE = 600000;
+    static final int DAYS_NUMBER = 7;
+    static final int START_VALUE = 0;
+    static final int END_VALUE = 600000;
     private static AtomicInteger value = new AtomicInteger(0);
-    public static final int MIN = 2;
-    public static final int MAX = 10;
+    static final int MIN = 2;
+    static final int MAX = 10;
 
     public static Date getDateToInterrupt() {
         Date date = new Date();
         GregorianCalendar calendar = new GregorianCalendar();
         calendar.setTime(date);
-        //TODO: change minutes to days and use DAYS_NUMBER
-        calendar.add(Calendar.MINUTE, 1);
+        calendar.add(Calendar.DATE, DAYS_NUMBER);
         date.setTime(calendar.getTime().getTime());
         return date;
     }

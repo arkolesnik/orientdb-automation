@@ -32,8 +32,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
 
-        //TODO: change 100 to RECORDS_NUMBER
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < RECORDS_NUMBER; i++) {
             ODocument record = new ODocument(CLASS_NAME);
             Counter.incrementInstance();
             fillInRecordProperties(record);
@@ -185,8 +184,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         if (!done) {
             throw new IllegalStateException("Maximum attempts count is reached");
         }
-        //TODO: change it to bigger number
-        if (iterationNumber % 100 == 0) {
+        if (iterationNumber % 1000 == 0) {
             LOG.info("Thread " + Thread.currentThread().getId() + " has performed " + iterationNumber + " operations");
         }
     }

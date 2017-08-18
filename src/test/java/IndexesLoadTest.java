@@ -56,13 +56,18 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             for (int i = 0; i < THREADS; i++) {
                 tasks.add(() -> {
                     int iterationNumber = 0;
-                    ODatabaseDocumentTx db = new ODatabaseDocumentTx(PATH).open(USER, PASSWORD);
-                    while (!interrupt.get()) {
-                        iterationNumber++;
-                        performOperationAgainstRecord(iterationNumber);
+                    try {
+                        ODatabaseDocumentTx db = new ODatabaseDocumentTx(PATH).open(USER, PASSWORD);
+                        while (!interrupt.get()) {
+                            iterationNumber++;
+                            performOperationAgainstRecord(iterationNumber);
+                        }
+                        db.close();
+                        return null;
+                    } catch (Exception e) {
+                        LOG.error(e.getMessage());
+                        throw new Exception(e);
                     }
-                    db.close();
-                    return null;
                 });
             }
             List<Future<Object>> futures = executor.invokeAll(tasks);
@@ -136,12 +141,13 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 ODocument newRecord = new ODocument(CLASS_NAME);
                 Counter.incrementInstance();
                 done = false;
-                while (!done && attempts < 1000) {
+                while (!done && attempts < 500000) {
                     try {
                         fillInRecordProperties(newRecord);
                         done = true;
                     } catch (ORecordDuplicatedException e) {
                         attempts++;
+                        logAttemptsCount(attempts);
                         Counter.incrementDuplicate();
                     }
                 }
@@ -150,7 +156,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 for (int i = 0; i < 4; i++) {
                     existingRecord = randomlySelectRecord();
                     done = false;
-                    while (!done && attempts < 1000) {
+                    while (!done && attempts < 500000) {
                         try {
                             modifyRecordProperties(existingRecord);
                             done = true;
@@ -158,6 +164,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                                 | ONeedRetryException | ORecordDuplicatedException e) {
                             existingRecord = randomlySelectRecord();
                             attempts++;
+                            logAttemptsCount(attempts);
                             if (e instanceof ORecordDuplicatedException) {
                                 Counter.incrementDuplicate();
                             }
@@ -168,7 +175,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             case DELETE:
                 existingRecord = randomlySelectRecord();
                 done = false;
-                while (!done && attempts < 1000) {
+                while (!done && attempts < 500000) {
                     try {
                         existingRecord.delete();
                         done = true;
@@ -176,6 +183,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                             | ONeedRetryException e) {
                         existingRecord = randomlySelectRecord();
                         attempts++;
+                        logAttemptsCount(attempts);
                     }
                 }
                 Counter.decrementInstance();
@@ -298,6 +306,12 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         manager.dropIndex(MAP_PROPERTY_INDEX);
         manager.dropIndex(COMPOSITE_INDEX_1);
         manager.dropIndex(COMPOSITE_INDEX_2);
+    }
+
+    private void logAttemptsCount(int attempts) {
+        if (attempts % 5000 == 0) {
+            LOG.warn(attempts + " attempts were made");
+        }
     }
 
 }

@@ -65,8 +65,8 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                         db.close();
                         return null;
                     } catch (Exception e) {
-                        LOG.error(e.getMessage());
-                        throw new Exception(e);
+                        LOG.error("Exception during operation processing", e);
+                        throw e;
                     }
                 });
             }

@@ -10,7 +10,7 @@ public class BasicUtils {
 
     static final int DAYS_NUMBER = 7;
     static final int START_VALUE = 0;
-    static final int END_VALUE = 600000;
+    static final int END_VALUE = 600000000 ;
     private static AtomicInteger value = new AtomicInteger(0);
     static final int MIN = 2;
     static final int MAX = 10;

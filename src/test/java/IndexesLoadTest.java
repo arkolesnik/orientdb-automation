@@ -27,7 +27,11 @@ import static utils.Operations.*;
 
 public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
-    public static final Logger LOG = LoggerFactory.getLogger(IndexesLoadTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(IndexesLoadTest.class);
+
+    private static final int ATTEMPTS_NUMBER = 500000;
+    private static final int INSTANCES_MAX = 200000;
+    private static final int INSTANCES_MIN = 100000;
 
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
@@ -141,7 +145,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 ODocument newRecord = new ODocument(CLASS_NAME);
                 Counter.incrementInstance();
                 done = false;
-                while (!done && attempts < 500000) {
+                while (!done && attempts < ATTEMPTS_NUMBER) {
                     try {
                         fillInRecordProperties(newRecord);
                         done = true;
@@ -156,7 +160,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 for (int i = 0; i < 4; i++) {
                     existingRecord = randomlySelectRecord();
                     done = false;
-                    while (!done && attempts < 500000) {
+                    while (!done && attempts < ATTEMPTS_NUMBER) {
                         try {
                             modifyRecordProperties(existingRecord);
                             done = true;
@@ -175,7 +179,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             case DELETE:
                 existingRecord = randomlySelectRecord();
                 done = false;
-                while (!done && attempts < 500000) {
+                while (!done && attempts < ATTEMPTS_NUMBER) {
                     try {
                         existingRecord.delete();
                         done = true;
@@ -290,9 +294,9 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private Operations pickRandomOperation() {
-        if (Counter.getInstanceNumber() >= 200) {
+        if (Counter.getInstanceNumber() >= INSTANCES_MAX) {
             return getRandomFrom(UPDATE, DELETE);
-        } else if (Counter.getInstanceNumber() <= 100) {
+        } else if (Counter.getInstanceNumber() <= INSTANCES_MIN) {
             return getRandomFrom(CREATE, UPDATE);
         }
         return getRandomFrom(CREATE, UPDATE, DELETE);

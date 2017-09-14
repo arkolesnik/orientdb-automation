@@ -16,11 +16,13 @@ public class CreateDatabaseForLoadFixture {
     static final String USER = "admin";
     static final String PASSWORD = "admin";
     static final String CLASS_NAME = "NewData";
+    static final String ID_NAME = "id";
     static final String INTEGER_PROPERTY_NAME = "integerProperty";
     static final String LIST_PROPERTY_NAME = "listProperty";
     static final String SET_PROPERTY_NAME = "setProperty";
     static final String MAP_PROPERTY_NAME = "mapProperty";
 
+    static final String ID_INDEX = CLASS_NAME + "." + ID_NAME;
     static final String INTEGER_PROPERTY_INDEX = CLASS_NAME + "." + INTEGER_PROPERTY_NAME;
     static final String LIST_PROPERTY_INDEX = CLASS_NAME + "." + LIST_PROPERTY_NAME;
     static final String SET_PROPERTY_INDEX = CLASS_NAME + "." + SET_PROPERTY_NAME;
@@ -29,7 +31,9 @@ public class CreateDatabaseForLoadFixture {
     static final String COMPOSITE_INDEX_1 = CLASS_NAME + ".composite1";
     static final String COMPOSITE_INDEX_2 = CLASS_NAME + ".composite2";
 
-    static final int RECORDS_NUMBER = 100000;
+    //static final int RECORDS_NUMBER = 100000;
+    static final int RECORDS_NUMBER = 100;
+
     static final int THREADS = 8;
 
     @BeforeTest
@@ -43,6 +47,7 @@ public class CreateDatabaseForLoadFixture {
         database = new ODatabaseDocumentTx(PATH).create();
 
         OClass data = database.getMetadata().getSchema().createClass(CLASS_NAME);
+        data.createProperty(ID_NAME, OType.INTEGER);
         data.createProperty(INTEGER_PROPERTY_NAME, OType.INTEGER);
         data.createProperty(LIST_PROPERTY_NAME, OType.EMBEDDEDLIST, OType.INTEGER);
         data.createProperty(SET_PROPERTY_NAME, OType.EMBEDDEDSET, OType.INTEGER);

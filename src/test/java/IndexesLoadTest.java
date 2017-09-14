@@ -2,19 +2,16 @@ import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
-import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.index.OIndexManager;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.storage.OCluster;
-import com.orientechnologies.orient.core.storage.OPhysicalPosition;
+import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.testng.annotations.Test;
 import utils.Counter;
 import utils.Fields;
 import utils.Operations;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,8 +27,11 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     private static final Logger LOG = LoggerFactory.getLogger(IndexesLoadTest.class);
 
     private static final int ATTEMPTS_NUMBER = 500000;
-    private static final int INSTANCES_MAX = 200000;
-    private static final int INSTANCES_MIN = 100000;
+/*    private static final int INSTANCES_MAX = 200000;
+    private static final int INSTANCES_MIN = 100000;*/
+
+    private static final int INSTANCES_MAX = 200;
+    private static final int INSTANCES_MIN = 100;
 
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
@@ -39,7 +39,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         for (int i = 0; i < RECORDS_NUMBER; i++) {
             ODocument record = new ODocument(CLASS_NAME);
             Counter.incrementInstance();
-            fillInRecordProperties(record);
+            fillInRecordProperties(record, Counter.returnNextId());
         }
 
         createAllIndexes();
@@ -87,8 +87,9 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         LOG.info("Number of ORecordDuplicationException caught during the test is: " + Counter.getDuplicationNumber());
     }
 
-    private void fillInRecordProperties(ODocument record) {
-        record.field(INTEGER_PROPERTY_NAME, (returnNextInt()));
+    private void fillInRecordProperties(ODocument record, int id) {
+        record.field(ID_NAME, id);
+        record.field(INTEGER_PROPERTY_NAME, (Counter.returnNextInt()));
         record.field(LIST_PROPERTY_NAME, getFilledList());
         record.field(SET_PROPERTY_NAME, getFilledSet());
         record.field(MAP_PROPERTY_NAME, getFilledMap());
@@ -96,6 +97,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private void createAllIndexes() {
+        createUniqueIndexForProperties(ID_INDEX, ID_NAME);
         createUniqueIndexForProperties(INTEGER_PROPERTY_INDEX, INTEGER_PROPERTY_NAME);
         createUniqueIndexForProperties(LIST_PROPERTY_INDEX, LIST_PROPERTY_NAME);
         createUniqueIndexForProperties(SET_PROPERTY_INDEX, SET_PROPERTY_NAME);
@@ -105,28 +107,28 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private List<Integer> getFilledList() {
-        int listSize = generateSize();
+        int listSize = Counter.generateSize();
         List<Integer> testList = new ArrayList<>(listSize);
         for (int i = 0; i < listSize; i++) {
-            testList.add(returnNextInt());
+            testList.add(Counter.returnNextInt());
         }
         return testList;
     }
 
     private Set<Integer> getFilledSet() {
-        int setSize = generateSize();
+        int setSize = Counter.generateSize();
         Set<Integer> testSet = new HashSet<>(setSize);
         for (int i = 0; i < setSize; i++) {
-            testSet.add(returnNextInt());
+            testSet.add(Counter.returnNextInt());
         }
         return testSet;
     }
 
     private Map<String, Integer> getFilledMap() {
-        int mapSize = generateSize();
+        int mapSize = Counter.generateSize();
         Map<String, Integer> testMap = new HashMap<>(mapSize);
         for (int i = 0; i < mapSize; i++) {
-            testMap.put(returnNextInt().toString(), returnNextInt());
+            testMap.put(Counter.returnNextInt().toString(), Counter.returnNextInt());
         }
         return testMap;
     }
@@ -147,7 +149,13 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 done = false;
                 while (!done && attempts < ATTEMPTS_NUMBER) {
                     try {
-                        fillInRecordProperties(newRecord);
+                        int idForCreate;
+                        if (Counter.getDeletedIds().isEmpty()) {
+                            idForCreate = Counter.returnNextId();
+                        } else {
+                            idForCreate = Counter.getDeletedIds().poll();
+                        }
+                        fillInRecordProperties(newRecord, idForCreate);
                         done = true;
                     } catch (ORecordDuplicatedException e) {
                         attempts++;
@@ -181,7 +189,9 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 done = false;
                 while (!done && attempts < ATTEMPTS_NUMBER) {
                     try {
+                        int deletedId = existingRecord.field(ID_NAME);
                         existingRecord.delete();
+                        Counter.getDeletedIds().offer(deletedId);
                         done = true;
                     } catch (NullPointerException | ORecordNotFoundException
                             | ONeedRetryException e) {
@@ -203,36 +213,20 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
     private ODocument randomlySelectRecord() {
         ODatabaseDocumentTx database = (ODatabaseDocumentTx) ODatabaseRecordThreadLocal.INSTANCE.get();
-        int[] clusterIDs = database.getMetadata().getSchema().getClass(CLASS_NAME).getClusterIds();
-        OCluster cluster;
-        int clusterID;
-        long randomPosition;
-        long position;
-        try {
-            while (true) {
-                clusterID = clusterIDs[new Random().nextInt(clusterIDs.length)];
-                cluster = database.getStorage().getClusterById(clusterID);
-                long firstPosition = cluster.getFirstPosition();
-                long lastPosition = cluster.getLastPosition();
-                if (firstPosition < 0 || lastPosition < 0) {
-                    continue;
-                }
-                randomPosition = ThreadLocalRandom.current().nextLong(firstPosition, lastPosition + 1);
-                OPhysicalPosition[] positions = cluster.ceilingPositions(new OPhysicalPosition(randomPosition));
-                if (positions.length == 0) {
-                    positions = cluster.floorPositions(new OPhysicalPosition(randomPosition));
-                }
-                if (positions.length == 0) {
-                    continue;
-                }
-                position = positions[0].clusterPosition;
+        ODocument selectedRecord;
+        int randomId;
+        while (true) {
+            randomId = ThreadLocalRandom.current().nextInt(1, Counter.getInstanceNumber());
+            List<ODocument> result = database.query(
+                    new OSQLSynchQuery<>("select from " + CLASS_NAME + " where "
+                            + ID_NAME + " = " + randomId));
+            if (!result.isEmpty()) {
+                selectedRecord = result.get(0);
                 break;
             }
-            return database.load(new ORecordId(clusterID, position));
-
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
+
+        return selectedRecord;
     }
 
     private void modifyRecordProperties(ODocument record) {
@@ -264,13 +258,13 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     }
 
     private void modifyIntegerProperty(ODocument record) {
-        record.field(INTEGER_PROPERTY_NAME, (generateInt()));
+        record.field(INTEGER_PROPERTY_NAME, (Counter.generateInt()));
     }
 
     private void modifyListProperty(ODocument record) {
         List<Integer> listProperty = record.field(LIST_PROPERTY_NAME);
         for (int i = 0; i < listProperty.size() / 2; i++) {
-            listProperty.set(new Random().nextInt(listProperty.size()), generateInt());
+            listProperty.set(new Random().nextInt(listProperty.size()), Counter.generateInt());
         }
     }
 
@@ -279,7 +273,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         List<Integer> utilityIntegerList = new ArrayList<>(setProperty);
         for (int i = 0; i < setProperty.size() / 2; i++) {
             setProperty.remove(utilityIntegerList.get(new Random().nextInt(utilityIntegerList.size())));
-            setProperty.add(generateInt());
+            setProperty.add(Counter.generateInt());
         }
     }
 
@@ -289,7 +283,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
         for (int i = 0; i < mapProperty.size() / 2; i++) {
             String key = utilityStringList.get(new Random().nextInt(utilityStringList.size()));
             mapProperty.remove(key);
-            mapProperty.put(generateInt().toString(), generateInt());
+            mapProperty.put(Counter.generateInt().toString(), Counter.generateInt());
         }
     }
 

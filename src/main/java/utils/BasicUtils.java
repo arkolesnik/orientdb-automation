@@ -12,8 +12,7 @@ public class BasicUtils {
         Date date = new Date();
         GregorianCalendar calendar = new GregorianCalendar();
         calendar.setTime(date);
-        calendar.add(Calendar.MINUTE, 5);
-        //calendar.add(Calendar.DATE, DAYS_NUMBER);
+        calendar.add(Calendar.DATE, DAYS_NUMBER);
         date.setTime(calendar.getTime().getTime());
         return date;
     }

@@ -27,11 +27,8 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
     private static final Logger LOG = LoggerFactory.getLogger(IndexesLoadTest.class);
 
     private static final int ATTEMPTS_NUMBER = 500000;
-/*    private static final int INSTANCES_MAX = 200000;
-    private static final int INSTANCES_MIN = 100000;*/
-
-    private static final int INSTANCES_MAX = 200;
-    private static final int INSTANCES_MIN = 100;
+    private static final int INSTANCES_MAX = 200000;
+    private static final int INSTANCES_MIN = 100000;
 
     @Test
     public void shouldRecreateIndexes() throws InterruptedException, ExecutionException {
@@ -298,6 +295,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
     private void dropAllIndexes() {
         OIndexManager manager = database.getMetadata().getIndexManager();
+        manager.dropIndex(ID_INDEX);
         manager.dropIndex(INTEGER_PROPERTY_INDEX);
         manager.dropIndex(LIST_PROPERTY_INDEX);
         manager.dropIndex(SET_PROPERTY_INDEX);

@@ -31,9 +31,7 @@ public class CreateDatabaseForLoadFixture {
     static final String COMPOSITE_INDEX_1 = CLASS_NAME + ".composite1";
     static final String COMPOSITE_INDEX_2 = CLASS_NAME + ".composite2";
 
-    //static final int RECORDS_NUMBER = 100000;
-    static final int RECORDS_NUMBER = 100;
-
+    static final int RECORDS_NUMBER = 100000;
     static final int THREADS = 8;
 
     @BeforeTest

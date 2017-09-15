@@ -1,7 +1,7 @@
-import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
-import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
+import com.orientechnologies.orient.core.exception.OConcurrentModificationException;
+import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.index.OIndexManager;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -137,7 +137,7 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
 
     private void performOperationAgainstRecord(int iterationNumber) {
         ODocument existingRecord;
-        boolean done = false;
+        boolean done;
         int attempts = 0;
         switch (pickRandomOperation()) {
             case CREATE:
@@ -164,44 +164,31 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
             case UPDATE:
                 for (int i = 0; i < 4; i++) {
                     existingRecord = randomlySelectRecord();
+                    ORecordId rid = existingRecord.field("@rid");
                     done = false;
                     while (!done && attempts < ATTEMPTS_NUMBER) {
                         try {
                             modifyRecordProperties(existingRecord);
                             done = true;
-                        } catch (NullPointerException | ORecordNotFoundException
-                                | ONeedRetryException | ORecordDuplicatedException e) {
+                        } catch (OConcurrentModificationException e) {
+                            ODatabaseDocumentTx database = (ODatabaseDocumentTx) ODatabaseRecordThreadLocal.INSTANCE.get();
+                            existingRecord = database.load(rid);
+                        } catch (ORecordDuplicatedException e) {
                             existingRecord = randomlySelectRecord();
                             attempts++;
                             logAttemptsCount(attempts);
-                            if (e instanceof ORecordDuplicatedException) {
-                                Counter.incrementDuplicate();
-                            }
+                            Counter.incrementDuplicate();
                         }
                     }
                 }
                 break;
             case DELETE:
                 existingRecord = randomlySelectRecord();
-                done = false;
-                while (!done && attempts < ATTEMPTS_NUMBER) {
-                    try {
-                        int deletedId = existingRecord.field(ID_NAME);
-                        existingRecord.delete();
-                        Counter.getDeletedIds().offer(deletedId);
-                        done = true;
-                    } catch (NullPointerException | ORecordNotFoundException
-                            | ONeedRetryException e) {
-                        existingRecord = randomlySelectRecord();
-                        attempts++;
-                        logAttemptsCount(attempts);
-                    }
-                }
+                int deletedId = existingRecord.field(ID_NAME);
+                existingRecord.delete();
+                Counter.getDeletedIds().offer(deletedId);
                 Counter.decrementInstance();
                 break;
-        }
-        if (!done) {
-            throw new IllegalStateException("Maximum attempts count is reached");
         }
         if (iterationNumber % 1000 == 0) {
             LOG.info("Thread " + Thread.currentThread().getId() + " has performed " + iterationNumber + " operations");

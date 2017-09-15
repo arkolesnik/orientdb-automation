@@ -6,7 +6,7 @@ import java.util.GregorianCalendar;
 
 public class BasicUtils {
 
-    static final int DAYS_NUMBER = 7;
+    private static final int DAYS_NUMBER = 7;
 
     public static Date getDateToInterrupt() {
         Date date = new Date();

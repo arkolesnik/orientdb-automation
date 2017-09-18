@@ -11,7 +11,7 @@ public class CreateDatabaseForLoadFixture {
     ODatabaseDocumentTx database;
     private static final String ARG_DIR = "db.dir";
     private static final String NO_ARG_DIR = "java.io.tmpdir";
-    private static final String DB_NAME = "testuniqueindexes";
+    private static final String DB_NAME = "Testindexes";
     static String PATH;
     static final String USER = "admin";
     static final String PASSWORD = "admin";
@@ -36,13 +36,18 @@ public class CreateDatabaseForLoadFixture {
 
     @BeforeTest
     public void createDatabase() {
-        String dir = System.getProperty(ARG_DIR);
-        if (dir == null) {
-            dir = System.getProperty(NO_ARG_DIR);
+        String url = System.getProperty(ARG_DIR);
+        if (url == null) {
+            url = System.getProperty(NO_ARG_DIR);
         }
-        PATH = "plocal:" + new File(dir + File.separator + DB_NAME).getPath();
 
-        database = new ODatabaseDocumentTx(PATH).create();
+        PATH = new File(url + File.separator + DB_NAME).getPath();
+
+        if (PATH.contains("remote")) {
+            database = new ODatabaseDocumentTx(PATH).open(USER, PASSWORD);
+        } else {
+            database = new ODatabaseDocumentTx("plocal:" + PATH).create();
+        }
 
         OClass data = database.getMetadata().getSchema().createClass(CLASS_NAME);
         data.createProperty(ID_NAME, OType.INTEGER);
@@ -54,7 +59,8 @@ public class CreateDatabaseForLoadFixture {
 
     @AfterTest
     public void dropDatabase() {
-        database.drop();
+        if (!database.getStorage().isRemote()) {
+            database.drop();
+        }
     }
-
 }

@@ -146,11 +146,10 @@ public class IndexesLoadTest extends CreateDatabaseForLoadFixture {
                 done = false;
                 while (!done && attempts < ATTEMPTS_NUMBER) {
                     try {
-                        int idForCreate;
-                        if (Counter.getDeletedIds().isEmpty()) {
+                        Integer idForCreate;
+                        idForCreate = Counter.getDeletedIds().poll();
+                        if (idForCreate == null) {
                             idForCreate = Counter.returnNextId();
-                        } else {
-                            idForCreate = Counter.getDeletedIds().poll();
                         }
                         fillInRecordProperties(newRecord, idForCreate);
                         done = true;
